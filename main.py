@@ -44,7 +44,6 @@ and writes the winner to the output file.
 """
 
 import os
-import stat
 
 # (text, scores per criterion 1..5, in judge order)
 CANDIDATES = [
@@ -96,15 +95,24 @@ def main():
     if not winner.strip():
         raise SystemExit("winner is only whitespace")
 
-    out_path = os.environ.get("ENTRY_OUTPUT", "/output/entry.txt")
+    # Output path: $ENTRY_OUTPUT wins, else $MAKEFUN_OUTPUT_DIR/entry.txt,
+    # else /output/entry.txt. Never chmod anything here: in the grader
+    # sandbox the output directory may be owned by another user (e.g.
+    # root, mode 777), and chmod on a directory or file we do not own
+    # raises PermissionError and kills the run before anything is written.
+    out_path = os.environ.get("ENTRY_OUTPUT")
+    if not out_path:
+        makefun_dir = os.environ.get("MAKEFUN_OUTPUT_DIR")
+        if makefun_dir:
+            out_path = os.path.join(makefun_dir, "entry.txt")
+        else:
+            out_path = "/output/entry.txt"
     out_dir = os.path.dirname(out_path)
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-        os.chmod(out_dir, 0o755)
 
     with open(out_path, "w", encoding="utf-8", newline="\n") as f:
         f.write(winner + "\n")
-    os.chmod(out_path, 0o644)
 
 
 if __name__ == "__main__":
